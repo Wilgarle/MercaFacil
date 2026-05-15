@@ -1,0 +1,38 @@
+﻿Tables_in_mercafacil	Table_type
+almacen	BASE TABLE
+almacen_historial	BASE TABLE
+auditoria_sistema	BASE TABLE
+categoria	BASE TABLE
+cliente	BASE TABLE
+clientes_historial	BASE TABLE
+compra	BASE TABLE
+copia_cliente	BASE TABLE
+detallecompra	BASE TABLE
+detallepedido	BASE TABLE
+detalleventa	BASE TABLE
+inventario	BASE TABLE
+pedido	BASE TABLE
+precios_producto	BASE TABLE
+producto	BASE TABLE
+producto_proveedor	BASE TABLE
+proveedor	BASE TABLE
+tipoprecio	BASE TABLE
+venta	BASE TABLE
+vw_compras_proveedor	VIEW
+vw_gastos_mensuales_proveedor	VIEW
+vw_inventario_almacen	VIEW
+vw_pedidos_pendientes	VIEW
+vw_producto_masventas	VIEW
+vw_productos_bajo_stock	VIEW
+vw_productos_precio_activos	VIEW
+vw_totalventas_cliente	VIEW
+vw_ventas_detalladas	VIEW
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+TR_Almacenes_Eliminados	DELETE	almacen	BEGIN\n    INSERT INTO Almacen_Historial (\n        almacen_id,\n        codigo,\n        nombre,\n        direccion,\n        gerente,\n        estado,\n        accion,\n        fecha_accion,\n        usuario_accion\n    )\n    VALUES (\n        OLD.almacen_id,\n        OLD.codigo,\n        OLD.nombre,\n        OLD.direccion,\n        OLD.gerente,\n        OLD.estado,\n        'DELETE',\n        NOW(),\n        CURRENT_USER()\n    );\nEND	AFTER	2026-05-11 18:36:04.87	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+TR_Clientes_Actualizados	UPDATE	cliente	BEGIN\n    INSERT INTO Clientes_Historial (\n        cliente_id,\n        documento,\n        nombre,\n        direccion,\n        telefono,\n        tipo_cliente,\n        accion,\n        fecha_accion,\n        usuario_accion\n    )\n    VALUES (\n        OLD.cliente_id,\n        OLD.documento,\n        OLD.nombre,\n        OLD.direccion,\n        OLD.telefono,\n        OLD.tipo_cliente,\n        'UPDATE',\n        NOW(),\n        CURRENT_USER()\n    );\nEND	AFTER	2026-05-03 18:10:10.16	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+TR_Clientes_Eliminados	DELETE	cliente	BEGIN\n    INSERT INTO Clientes_Historial (\n        cliente_id,\n        documento,\n        nombre,\n        direccion,\n        telefono,\n        tipo_cliente,\n        accion,\n        fecha_accion,\n        usuario_accion\n    )\n    VALUES (\n        OLD.cliente_id,\n        OLD.documento,\n        OLD.nombre,\n        OLD.direccion,\n        OLD.telefono,\n        OLD.tipo_cliente,\n        'DELETE',\n        NOW(),\n        CURRENT_USER()\n    );\nEND	AFTER	2026-05-03 18:10:01.42	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+TR_Actualizar_Stock_Por_Compra	INSERT	detallecompra	BEGIN\n    DECLARE v_almacen_id INT;\n    -- Obtenemos el almacén desde la cabecera de la compra\n    SELECT almacen_id INTO v_almacen_id FROM Compra WHERE compra_id = NEW.compra_id;\n\n    UPDATE Inventario \n    SET stock_actual = stock_actual + NEW.cantidad\n    WHERE producto_id = NEW.producto_id AND almacen_id = v_almacen_id;\nEND	AFTER	2026-05-03 19:35:11.46	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+TR_Actualizar_Stock_Por_Venta	INSERT	detalleventa	BEGIN\n    DECLARE v_almacen_id INT;\n    -- Obtenemos el almacén desde la cabecera de la venta\n    SELECT almacen_id INTO v_almacen_id FROM Venta WHERE venta_id = NEW.venta_id;\n\n    UPDATE Inventario \n    SET stock_actual = stock_actual - NEW.cantidad\n    WHERE producto_id = NEW.producto_id AND almacen_id = v_almacen_id;\nEND	AFTER	2026-05-03 19:35:06.85	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+TR_Alerta_Stock_Agotado	UPDATE	inventario	BEGIN\n    IF NEW.stock_actual = 0 THEN\n        INSERT INTO Auditoria_Sistema (tabla_afectada, referencia_id, mensaje, nivel_alerta)\n        VALUES ('Inventario', NEW.producto_id, \n                CONCAT('PRODUCTO AGOTADO: El producto ID ', NEW.producto_id, ' se ha quedado sin existencias en el almacén ', NEW.almacen_id), \n                'CRITICO');\n    ELSEIF NEW.stock_actual <= (SELECT stock_minimo FROM Producto WHERE producto_id = NEW.producto_id) THEN\n        INSERT INTO Auditoria_Sistema (tabla_afectada, referencia_id, mensaje, nivel_alerta)\n        VALUES ('Inventario', NEW.producto_id, \n                CONCAT('STOCK BAJO: El producto ID ', NEW.producto_id, ' está por debajo del mínimo permitido.'), \n                'ADVERTENCIA');\n    END IF;\nEND	AFTER	2026-05-03 19:35:01.84	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+TR_Auditoria_Precios	UPDATE	precios_producto	BEGIN\n    IF OLD.precio <> NEW.precio THEN\n        INSERT INTO Auditoria_Sistema (tabla_afectada, referencia_id, mensaje, nivel_alerta)\n        VALUES ('Precios_Producto', NEW.producto_id, \n                CONCAT('CAMBIO DE PRECIO: El precio cambió de $', OLD.precio, ' a $', NEW.precio), \n                'INFO');\n    END IF;\nEND	BEFORE	2026-05-03 19:35:16.59	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+TR_Validar_Borrado_Producto	DELETE	producto	BEGIN\n    DECLARE v_stock_total INT;\n    \n    SELECT SUM(stock_actual) INTO v_stock_total \n    FROM Inventario \n    WHERE producto_id = OLD.producto_id;\n\n    IF v_stock_total > 0 THEN\n        SIGNAL SQLSTATE '45000'\n        SET MESSAGE_TEXT = 'ERROR: No se puede eliminar un producto que aún tiene existencias en inventario.';\n    END IF;\nEND	BEFORE	2026-05-03 19:35:21.11	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci

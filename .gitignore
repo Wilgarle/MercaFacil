@@ -1,0 +1,36 @@
+# Archivos compilados y empaquetados (binarios)
+*.class
+*.jar
+*.war
+*.ear
+
+# Carpetas de construccion de NetBeans
+build/
+dist/
+target/
+
+# Configuraciones privadas de NetBeans (contiene rutas locales de tu PC)
+nbproject/private/
+nbproject/project.xml.bak
+nbbuild/
+
+# Archivos de configuracion de otros IDEs (por si alguien mas lo abre)
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Logs y archivos temporales
+*.log
+*.tmp
+*.temp
+hs_err_pid*
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar la carpeta de base de datos local si existiera
+/mysql_data/
